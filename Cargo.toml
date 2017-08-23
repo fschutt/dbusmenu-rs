@@ -1,0 +1,7 @@
+[package]
+name = "dbusmenu-rs"
+version = "0.1.0"
+authors = ["Felix Schütt <felix.schuett@maps4print.com>"]
+
+[dependencies]
+dbus = "0.5.3"
