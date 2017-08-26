@@ -6,3 +6,8 @@ pub mod dbusmenu;
 pub mod appmenuregistrar;
 /// Menu structure for abstracting the menu registering / changes
 pub mod menu;
+
+
+pub use dbusmenu::*;
+pub use menu::*;
+pub use appmenuregistrar::*;
