@@ -1,23 +1,26 @@
 //! Menu abstrction module
 
 use std::collections::HashMap;
-use std::thread::JoinHandle;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 use dbusmenu::ComCanonicalDbusmenu;
 use dbus::arg;
 use dbus;
 
-pub struct Menu/* <T> */ {
-    /* /// The background thread on which the menu is listening
-    pub thread_handle: JoinHandle<T>, */
+#[derive(Default)]
+pub struct Menu {
+    /// - `revision: i32`: The revision number of the layout.
+    /// For matching with layoutUpdated signals.
+    revision: Rc<RefCell<i32>>,
     /// The window ID that the menu was created on
     pub window_id: Option<u32>,
     /// The actual Menu structure, indexed by their action name / identifier
-    pub menu: HashMap<String, SubMenu>,
+    pub menu: HashMap<&'static str, SubMenu>,
     /// The current language.
     /// **NOTE** : The default is "en", so make sure to have at least one
     /// entry in the menu items labels that is indexed by "en"
-    pub cur_language: String,
+    pub cur_language: &'static str,
 }
 
 /// Top-level submenu. Not to be confused with MenuData::SubMenuItem
@@ -32,12 +35,12 @@ impl Menu {
 
     /// Creates a new window, but doesn't add it to any window yet
     /// Starts a new thread for maintaining the rendering loop
-    pub fn new(/* thread: JoinHandle<T> */) -> Self {
+    pub fn new() -> Self {
         Self {
+            revision: Rc::new(RefCell::new(0)),
             window_id: None,
-            /* thread_handle: thread, */
             menu: HashMap::new(),
-            cur_language: "en".into(),
+            cur_language: "en",
         }
     }
 
@@ -63,6 +66,20 @@ impl Menu {
         println!("remove_item: {:?}", item_id);
         false
     }
+
+    /// Adds an item to the menu list.
+    /// Does not error out, but rather returns if the add was successful
+    pub fn add_item<S: Into<String>>(item: S) -> bool {
+        let item_id = item.into();
+        println!("add item: {:?}", item_id);
+        false
+    }
+
+    /// Actually constructs the window so that it shows the menu now
+    /// Sends the menu over DBus
+    pub fn show() {
+
+    }
 }
 
 pub enum MenuItem {
@@ -79,6 +96,7 @@ pub enum MenuItem {
     SubMenuItem(String, Box<SubMenu>),
 }
 
+#[derive(Debug)]
 pub struct MenuData<F> {
     /// The action to execute, depends on the type of menu item
     pub action: F,
@@ -100,6 +118,7 @@ pub struct MenuData<F> {
     pub shortcut: Option<Vec<ShortcutData>>,
 }
 
+#[derive(Debug, Clone)]
 pub enum ShortcutData {
     /// The "Control" in CTRL + S
     ControlChar(CtrlChar),
@@ -108,6 +127,7 @@ pub enum ShortcutData {
 }
 
 /// The four controls registered by dbus
+#[derive(Debug, Copy, Clone)]
 pub enum CtrlChar {
     Ctrl,
     Alt,
@@ -143,6 +163,7 @@ pub enum CtrlChar {
     children-display = "",
 */
 
+#[derive(Debug)]
 pub enum MenuItemToggleState {
     On,
     Off,
@@ -182,6 +203,9 @@ impl ComCanonicalDbusmenu for Menu {
         // I have no idea if this will actually work in any way possible
         // (u, (ia{sv}av))
 
+        // Nautilus: 0, 2, []
+        // Answer: 14
+
         /*
             try!(m.as_result());
             let mut i = m.iter_init();
@@ -192,28 +216,47 @@ impl ComCanonicalDbusmenu for Menu {
 
         use dbus::Message;
         use dbus::Member;
+
+        println!("getlayout called!");
         let mut m = Message::new_method_call("com.canonical.dbusmenu", "com/canonical/dbusmenu", "com.canonical.dbusmenu", Member::new("com.canonical.dbusmenu".as_bytes()).unwrap()).unwrap();
         try!(m.as_result());
         let mut i = m.iter_init();
 
         let mut map = HashMap::<String, arg::Variant<Box<arg::RefArg>>>::new();
         map.insert("data-hello".into(), arg::Variant::new_refarg(&mut i).unwrap());
-        Ok((0, (0, map, Vec::new())))
+        *self.revision.borrow_mut() += 1;
+        Ok((1, (*self.revision.borrow(), map, Vec::new())))
     }
 
     fn get_group_properties(&self, ids: Vec<i32>, property_names: Vec<&str>)
     -> Result<Vec<(i32, ::std::collections::HashMap<String, arg::Variant<Box<arg::RefArg>>>)>, Self::Err> {
         // I AM NOT SURE IF THS WORKS!
+        println!("get_group_properties called: {:?}, {:?}", ids, property_names);
+/*
+    method call time=1510750424.121891
+    sender=:1.318
+    -> destination=org.freedesktop.DBus
+    serial=1 path=/org/freedesktop/DBus;
+    interface=org.freedesktop.DBus;
+    member=Hello
+*/
+
+    // warning: other method is also called "hello"
+    // If Nautilus is called with [0], returns [(0, {'children-display': 'submenu'})]
         let mut properties_hashmap = HashMap::<String, arg::Variant<Box<arg::RefArg>>>::new();
         properties_hashmap.insert("label".into(), arg::Variant(Box::new("Hello".to_string())));
         Ok(vec![(0, properties_hashmap)])
     }
 
     fn get_property(&self, id: i32, name: &str) -> Result<arg::Variant<Box<arg::RefArg>>, Self::Err> {
+        println!("get property called!");
+        // Nautilus get_propery(0, 'children-display') -> 'submenu'
         Ok(arg::Variant(Box::new("everything is OK".to_string())))
     }
 
     fn event(&self, id: i32, event_id: &str, data: arg::Variant<Box<arg::RefArg>>, timestamp: u32) -> Result<(), Self::Err> {
+        println!("event called!");
+
         if event_id == "clicked" {
             println!("received clicked event for menu item {:?}", id);
         } else if event_id == "hovered" {
@@ -226,17 +269,41 @@ impl ComCanonicalDbusmenu for Menu {
     fn about_to_show(&self, id: i32) -> Result<bool, Self::Err> {
         // ??? "Whether this AboutToShow event should result in the menu being updated."
         // not sure what this means
+        println!("about_to_show called, id: {:?}", id);
         Ok(true)
     }
 
     fn get_version(&self) -> Result<u32, Self::Err> {
         // ????
-        Ok(1)
+        println!("about_to_show called!");
+
+        Ok(3)
     }
 
     fn get_status(&self) -> Result<String, Self::Err> {
-        // Menus will always be in "normal" state, may change later on
+       println!("get_status called!");
+
+       // Menus will always be in "normal" state, may change later on
         Ok("normal".into())
     }
 }
 
+#[derive(Default, Clone)]
+pub struct MData;
+
+impl<'a> dbus::tree::DataType for MData {
+    type Tree = ();
+    type ObjectPath = Menu; // Every objectpath in the tree now owns a menu object.
+    type Property = ();
+    type Interface = ();
+    type Method = ();
+    type Signal = ();
+}
+
+/// Since parts of the menu are not printable, implement Debug trait manually
+/// Needed because of a bug in rust: https://github.com/rust-lang/rust/issues/31518
+impl ::std::fmt::Debug for Menu {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(f, "Menu {{ /* non-printable fields omitted */ }}")
+    }
+}

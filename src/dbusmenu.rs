@@ -370,8 +370,13 @@ impl<'a, C: ::std::ops::Deref<Target=dbus::Connection>> ComCanonicalDbusmenu for
     }
 }
 
-pub fn com_canonical_dbusmenu_server<F, T, D>(factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F) -> tree::Interface<tree::MTFn<D>, D>
-where D: tree::DataType, D::Method: Default, T: ComCanonicalDbusmenu<Err=tree::MethodErr>, D::Property: Default, F: 'static + for <'z> Fn(& 'z tree::MethodInfo<tree::MTFn<D>, D>) -> & 'z T {
+
+pub fn com_canonical_dbusmenu_server<F, T, D>(factory: &tree::Factory<tree::MTFn<D>, D>, data: D::Interface, f: F)
+-> tree::Interface<tree::MTFn<D>, D> where
+D: tree::DataType, D::Method: Default,
+T: ComCanonicalDbusmenu<Err=tree::MethodErr>, D::Property: Default,
+F: 'static + for <'z> Fn(& 'z tree::MethodInfo<tree::MTFn<D>, D>) -> & 'z T
+{
 
     let i = factory.interface("com.canonical.dbusmenu", data);
     let f = ::std::sync::Arc::new(f);
