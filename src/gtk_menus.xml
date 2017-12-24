@@ -1,0 +1,125 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node xmlns:dox="http://www.canonical.com/dbus/dox.dtd">
+    <interface name="org.gtk.Menus">
+        <dox:d><![CDATA[
+            The org.gtk.Menus interface is primarily concerned with three things:
+
+            - communicating menus to the client
+            - establishing links between menus
+            - menus notifying clients of changes
+
+            As a basic principle, it is recognised that the menu structure of an
+            application is often large. It is also recognised that
+            some menus are liable to frequently change without the user ever having opened
+            the menu. For both of these reasons, the individual menus are arranged into
+            subscription groups. Each subscription group is specified by an unsigned
+            integer. The assignment of integers need not be consecutive.
+
+            Within a subscription group there are multiple menus. Each menu is identified
+            with an unsigned integer, unique to its subscription group.
+
+            By convention, the primary menu is numbered 0 without subscription group 0.
+
+            Actionable menu items (ie: those that produce some effect in the application
+            when they are activated) have a related action, specified by a string. This
+            string specifies the name of the action, according to the org.gtk.Actions
+            interface, at the same object path as the menu.
+        ]]></dox:d>
+        <method name="Start">
+            <dox:d><![CDATA[
+                The Start method is used to indicate that a client is interested in tracking and
+                displaying the content of the menus of a particular list of subscription groups.
+
+                Most typically, the client will request subscription group 0 to start.
+
+                The call has two effects. First, it replies with all menus defined within the
+                requested subscription groups. The format of the reply is an array of tuples,
+                where the items in each tuple are:
+
+                - the subscription group of the menu (u)
+                - the number of the menu within that group (u)
+                - an array of menu items (aa{sv})
+
+                Each menu item is a dictionary of attributes (a{sv}).
+
+                Secondly, this call has a side effect: it atomically requests that the Changed
+                signal start to be emitted for the requested subscription group. Each group has
+                a subscription count and only signals changes on itself when this count is
+                greater than zero.
+
+                If a group is specified multiple times then the result is that the contents of
+                that group is only returned once, but the subscription count is increased
+                multiple times.
+
+                If a client disconnects from the bus while holding subscriptions then its
+                subscriptions will be cancelled. This prevents "leaking" subscriptions in the
+                case of crashes and is also useful for applications that want to exit without
+                manually cleaning up.
+            ]]></dox:d>
+            <arg name="inputGroup" type="au" direction="in">
+                <dox:d>????????</dox:d>
+            </arg>
+            <arg name="subscriptionGroup" type="u" direction="out">
+                <dox:d>The subscription group of the menu</dox:d>
+            </arg>
+            <arg name="menuId" type="u" direction="out">
+                <dox:d>The number of the menu within that group</dox:d>
+            </arg>
+            <arg name="menuItems" type="aa{sv}" direction="out">
+                <dox:d>An array of menu items. Each menu item is a dictionary of attributes (a{sv}).</dox:d>
+            </arg>
+        </method>
+
+        <method name="End">
+            <dox:d><![CDATA[
+                The End method reverses the previous effects of a call to Start.
+
+                When clients are no longer interested in the contents of a subscription group,
+                they should call the End method.
+
+                The parameter lists the subscription groups. A subscription group needs to be
+                cancelled the same number of times as it was requested. For this reason, it
+                might make sense to specify the same subscription group multiple times (if
+                multiple Start calls were made for this group)
+            ]]></dox:d>
+            <arg name="inputGroup" type="au" direction="in">
+                <dox:d>????????</dox:d>
+            </arg>
+        </method>
+
+        <signal name="Changed">
+            <dox:d><![CDATA[
+                The Changed signal indicates changes to a particular menu.
+                The changes come as an array of tuples where the items in each tuple are:
+
+                - the subscription group of the menu (u)
+                - the number of the menu within that group (u)
+                - the position in the menu at which to make the change (u)
+                - the number of items to delete from that position (u)
+                - a list of new items to insert at that position (aa{sv})
+
+                Each new menu item is a dictionary of attributes (a{sv}).
+
+                Attributes
+
+                Menu items can have other attributes besides the "standard" attributes
+                that are listed below, such as id or accel. Consumers need to be
+                prepared to ignore attributes that they have no use for.
+
+                - label (s): the label to display
+                - action (s): the name of the action
+                - target (v): the parameter to pass when activating the action
+                - section ((uu)): the menu to populate a section, specified as pair
+                  of subscription group and menu within that group
+                - submenu ((uu)): the menu to use as a submenu, specified as
+                  pair of subscription group and menu within that group
+
+            ]]></dox:d>
+
+            <arg name="input" type="a(uuuuaa{sv})" direction="out">
+                <dox:d>????????</dox:d>
+            </arg>
+
+        </signal>
+    </interface>
+</node>
